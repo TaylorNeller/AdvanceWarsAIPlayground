@@ -687,14 +687,30 @@ function endTurnVisual() {
     turnText.textContent = "Turn: " + ((turn == 0) ? "Orange Star" : "Blue Moon");
     drawMap();
     if (turn == 0) {
-        startAITurn3();
+        // startAITurn3();
     }
     else if (turn == 1) {
         startAITurn();
     }
 }
 
-startAITurn3();
+// startAITurn3();
+
+map[0][0].turn = turn;
+const data = map;
+
+// Define the API endpoint URL
+const url = "http://localhost:5000/api";
+
+// Make the GET request with the JSON object as input
+fetch(url, {
+  method: "POST",
+  headers: { "Content-type": "application/json" },
+  body: JSON.stringify(data),
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data))
+  .catch((error) => console.error(error));
 
 // ---------------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------------------------
