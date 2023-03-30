@@ -1,6 +1,15 @@
 import copy
+import random
 
 melee = ((-1,0),(0,1),(1,0),(0,-1))
+
+dmgMatrix = [ 
+    [.55,.45,.12,.05,.15],
+    [.65,.44,.85,.55,.45],
+    [.7,.65,.35,.06,.45],
+    [.75,.7,.85,.55,.7],
+    [.9,.85,.8,.7,.75]
+]
 
 class Game:
     def __init__(self, map, turn):
@@ -18,6 +27,7 @@ class Game:
                     self.searched = [[-1] * self.cols for _ in range(self.rows)]
                     new_moves = self.search(r, c, r, c, unit.move, unit.attack_squares)
                     moves.extend(new_moves)
+                    unit.searched = self.searched
         return moves
     
     def search(self, ori_r, ori_c, row, col, dist, atk_squares):
@@ -100,6 +110,24 @@ class Game:
                     validList.append([newR, newC])
         return validList
 
+    def attack(self, attackerR, attackerC, defenderR, defenderC):
+        unit1 = self.map[attackerR][attackerC]
+        unit2 = self.map[defenderR][defenderC]
+        attackVal = dmgMatrix[unit1.id][unit2.id] + random.random() * 0.09
+        defenseVal = (100 - 0 * unit2.hp) / 100
+        atkDmg = round(2 * unit1.hp * attackVal * defenseVal) / 2
+        unit2.hp -= atkDmg
+
+        if unit2.hp <= 0:
+            self.map[defenderR][defenderC] = None
+        elif unit1.id != 4 and unit2.id != 4:
+            attackVal = dmgMatrix[unit2.id][unit1.id] + random.random() * 0.09
+            defenseVal = (100 - 0 * unit1.hp) / 100
+            atkDmg = round(2 * unit2.hp * attackVal * defenseVal) / 2
+            unit1.hp -= atkDmg
+
+            if unit1.hp <= 0:
+                self.map[attackerR][attackerC] = None
 
     def is_game_over(self):
         # Returns True if the game is over in the given state, False otherwise
@@ -114,14 +142,30 @@ class Game:
                     score += unit.value * unit.hp / 10 * (1 if unit.team == self.turn else -1)
         return score
 
+    def deep_heuristic(game, nSims, depth, takeTurn):
+        child = game.clone()
+        score = 0
+        for j in range(nSims):
+            for i in range(depth):
+                takeTurn(child)
+            score += child.heuristic() * (1 if depth % 2 == 1 else -1)
+        return score/nSims
 
+
+    def end_turn(self):
+        self.turn = 1 - self.turn
+        for r in range(self.rows):
+            for c in range(self.cols):
+                unit = self.map[r][c]
+                if unit and unit.is_exhausted:
+                    unit.is_exhausted = False
 
     
     def get_map(self):
         return self.map
 
     def clone(self):
-        return Game(copy.deepcopy(self.map))  # create new Game instance with a deep copy of the map
+        return Game(copy.deepcopy(self.map),self.turn)  # create new Game instance with a deep copy of the map
 
 
 
@@ -136,6 +180,7 @@ class Unit:
         self.value = value
         self.is_exhausted = is_exhausted
         self.attack_squares = attack_squares
+        self.searched = None
 
 
 class Infantry(Unit):

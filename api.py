@@ -42,7 +42,8 @@ def api():
     # print()
 
     # Process the data and return a response
-    return jsonify(game.get_legal_moves())
+    # return jsonify(get_next_greedy(game))
+    return jsonify(get_move_order(game,1000))
 
 
 
