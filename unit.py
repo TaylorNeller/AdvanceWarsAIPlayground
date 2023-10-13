@@ -17,8 +17,9 @@ class Unit:
         TANK: {INFANTRY: 75, MECH: 70, RECON: 85, ARTILLERY: 105, TANK: 55}
     }
 
-    MOVE_AMOUNTS = [3, 2, 8, 6, 5]
+    MOVE_AMOUNTS = [3, 2, 8, 5, 6]
     MOVE_TYPES = ['inf', 'mech', 'wheel','tread', 'tread']
+    UNIT_VALUES = [1000,3000,4000,6000,7000]
 
     
     melee = [[-1, 0], [0, 1], [1, 0], [0, -1]]
@@ -48,6 +49,9 @@ class Unit:
     def get_army(self):
         """Returns the string representation of the army."""
         return self.army
+    
+    def get_value(self):
+        return Unit.UNIT_VALUES[self.get_unit_type()]
     
     def get_army_str(self):
         return Unit.ARMY_NAMES[self.get_army()]
@@ -79,7 +83,7 @@ class Unit:
     def get_visible_hp(self):
         return math.ceil(self.hp / 10)
         
-    def is_exhasted(self):
+    def is_exhausted(self):
         return self.exhausted
 
     def mark_exhausted(self):
@@ -124,33 +128,10 @@ class Unit:
         Artillery units cannot counterattack, but others can if they are attacked from an adjacent cell.
         """
         # Artillery units cannot counterattack
-        if self.unit_type == Unit.ARTILLERY:
+        if self.unit_type == Unit.ARTILLERY or attacker.unit_type == Unit.ARTILLERY:
             return False
         
         # For now, other units can always counterattack. Update this based on actual game mechanics.
         return True
 
-    def attack(self, defender, terrain_defense_bonus):
-        """
-        This unit attacks the defender. If the defender survives and can counterattack,
-        it will deal damage back to this unit.
-
-        Parameters:
-        - defender: The defending unit.
-        - terrain_defense_bonus: Defense stars of the terrain the defender is on.
-        """
-        # Attacker deals damage to defender
-        damage_percentage = self.calculate_damage(defender, terrain_defense_bonus)
-        print(damage_percentage)
-        defender.take_damage(damage_percentage)
-
-        # If defender survives and can counterattack, it deals damage back to the attacker
-        if defender.hp > 0 and defender.can_counterattack(self):
-            counter_damage_percentage = defender.calculate_damage(self, terrain_defense_bonus)
-            self.take_damage(counter_damage_percentage)
-
-        # Mark attacker as exhausted
-        self.exhausted = True
-
-        # Return True if defender is destroyed, otherwise False
-        return defender.hp <= 0
+    

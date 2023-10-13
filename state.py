@@ -1,12 +1,13 @@
 import numpy as np
 from unit import Unit
+import copy
 
 class GameState:
+
     
     # Define the terrain types as class-level constants
     ROAD, PLAIN, FOREST = range(3)
     
-    # Update in the GameState class
     TERRAIN_MAPPING = {
         'road': 0,
         'plain': 1,
@@ -31,6 +32,8 @@ class GameState:
     ]
 
     REVERSE_TERRAIN_MAPPING = {value: key for key, value in TERRAIN_MAPPING.items()}
+    END_TURN = (-1,-1,-1,-1,-1,-1)
+    RESIGN = (-2,-2,-2,-2,-2,-2)
 
     def __init__(self, rows, cols):
         self.rows = rows
@@ -45,6 +48,18 @@ class GameState:
         
         # List to store all active units for efficient iteration
         self.active_units = []
+
+        self.current_army = Unit.ORANGE_STAR
+        self.turn = 1
+
+    def end_turn(self):
+
+        for unit in self.active_units:
+            if unit.army == self.current_army:
+                unit.reset_exhaustion()
+        
+        self.current_army = 1 - self.current_army
+        self.turn = self.turn+1
 
     def add_unit(self, unit, row, col):
         """Adds a unit to the specified location."""
@@ -90,12 +105,14 @@ class GameState:
         """
         Determine if the attacking unit can attack the defender based on their positions.
         """
-        
+        if not (0 <= defender_coords[0] < self.rows and 0 <= defender_coords[1] < self.cols):
+            return False
+
         attacker = self.get_unit(*attacker_coords)
         defender = self.get_unit(*defender_coords)
         
         # If the attacker or defender does not exist, return False
-        if not attacker or not defender:
+        if not attacker or not defender or attacker.army == defender.army:
             return False
 
         # Check for artillery
@@ -115,65 +132,6 @@ class GameState:
         dc = abs(attacker_new_coords[1] - defender_coords[1])
         return dr <= 1 and dc <= 1
 
-    def get_possible_attacks(self, start_row, start_col, end_row, end_col):
-        unit = self.get_unit(end_row, end_col)
-        if not unit:
-            return []
-        
-        attacks = []
-        # Define possible directions for attack
-        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-
-        for dr, dc in directions:
-            new_r, new_c = end_row + dr, end_col + dc
-
-            if 0 <= new_r < self.rows and 0 <= new_c < self.cols:
-                target = self.get_unit(new_r, new_c)
-                if target and target.army != unit.army and self.can_attack((start_row, start_col), (end_row, end_col), (new_r, new_c)):
-                    attacks.append((start_row, start_col, end_row, end_col, new_r, new_c))
-                    
-        return attacks
-
-    def get_possible_moves(self, row, col):
-        unit = self.get_unit(row, col)
-        if not unit:
-            return []
-
-        visited = set()  # To keep track of visited cells
-        moves = []
-
-        # Define possible directions for movement or attack
-        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-
-        # Use BFS for movement exploration
-        queue = [(row, col, unit.get_movement_amount())]
-
-        while queue:
-            r, c, remaining_movement = queue.pop(0)
-
-            # If we've moved to this position, update the moves list
-            if (r, c) != (row, col):
-                moves.append((row, col, r, c, None, None))
-
-            for dr, dc in directions:
-                new_r, new_c = r + dr, c + dc
-
-                if (0 <= new_r < self.rows and 0 <= new_c < self.cols) and (new_r, new_c) not in visited:
-                    terrain = self.get_terrain(new_r, new_c)
-                    move_cost = GameState.TERRAIN_MOVE_COSTS[unit.get_move_type()][GameState.TERRAIN_MAPPING[terrain]]
-                    
-                    if remaining_movement - move_cost >= 0:
-                        target = self.get_unit(new_r, new_c)
-                        if not target:
-                            queue.append((new_r, new_c, remaining_movement - move_cost))
-                        elif target.army != unit.army and self.can_attack((row, col), (r, c), (new_r, new_c)):
-                            moves.append((row, col, r, c, new_r, new_c))
-
-            visited.add((r, c))
-            # moves.extend(self.get_possible_attacks(row, col, r, c))
-
-        return moves
-    
     def can_traverse(self, unit, row, col):
         if GameState.TERRAIN_MATRIX[unit.get_unit_type()][self.terrain_matrix[row][col]] > 20:
             return False
@@ -181,16 +139,16 @@ class GameState:
         return not (unit2 and unit2.army != unit.army)
     
     def can_end(self, unit, row, col):
-        if not self.can_traverse(self, unit, row, col):
+        if not self.can_traverse(unit, row, col):
             return False
-        return not self.unit_matrix[row][col]
+        return not self.unit_matrix[row][col] or unit == self.unit_matrix[row][col]
     
-    def get_all_possible_moves(self):
+    def get_all_legal_moves(self):
         moves = []
         for r in range(self.rows):
             for c in range(self.cols):
                 unit = self.get_unit(r, c)
-                if unit and not unit.is_exhausted:
+                if unit and not unit.is_exhausted() and unit.army == self.current_army:
                     self.searched = np.full((self.rows, self.cols), -1)
                     new_moves = self.move_search(r, c, r, c, unit.get_movement_amount())
                     moves.extend(new_moves)
@@ -199,10 +157,6 @@ class GameState:
     def get_legal_moves(self, row, col):
         self.searched = np.full((self.rows, self.cols), -1)
         return self.move_search(row, col, row, col, self.unit_matrix[row][col].get_movement_amount())
-    
-    def can_end(self, unit, row, col):
-        unit2 = self.unit_matrix[row][col]
-        return not unit2 or unit2 == unit
 
     def move_search(self, oriR, oriC, row, col, dist):
         moves = []
@@ -220,6 +174,43 @@ class GameState:
             for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]: # search new moves
                 newR = row + dr
                 newC = col + dc
-                if self.can_traverse(unit, newR, newC) and dist > 0:
+                if  (0 <= newR < self.rows and 0 <= newC < self.cols) and self.can_traverse(unit, newR, newC) and dist > 0:
                     moves.extend(self.move_search(oriR, oriC, newR, newC, dist-1))
         return moves
+    
+    def move(self, move):
+
+        if move == GameState.END_TURN or move == GameState.RESIGN:
+            self.end_turn()
+            return
+        
+        (fromR, fromC, toR, toC, atkR, atkC) = move
+        unit = self.unit_matrix[fromR][fromC]
+        unit.mark_exhausted()
+
+
+        if (atkR is not None):
+            defender = self.unit_matrix[atkR][atkC]
+            
+            # Attacker deals damage to defender
+            damage_percentage = unit.calculate_damage(defender, self.terrain_matrix[atkR][atkC])
+            defender.take_damage(damage_percentage)
+
+            # If defender survives and can counterattack, it deals damage back to the attacker
+            if defender.hp > 0 and defender.can_counterattack(unit):
+                counter_damage_percentage = defender.calculate_damage(unit, self.terrain_matrix[toR][toC])
+                unit.take_damage(counter_damage_percentage)
+
+            if defender.hp <= 0:
+                self.remove_unit(atkR,atkC)
+            if unit.hp <= 0:
+                self.active_units.remove(unit)
+                unit = None
+            
+
+        self.unit_matrix[fromR][fromC] = None
+        self.unit_matrix[toR][toC] = unit
+
+    def clone(self):
+            """Returns a deep copy of the current game state."""
+            return copy.deepcopy(self)

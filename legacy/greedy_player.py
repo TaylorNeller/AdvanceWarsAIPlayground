@@ -1,4 +1,4 @@
-from game import *
+from legacy.game import *
 import math
 
 def get_next_greedy(game):

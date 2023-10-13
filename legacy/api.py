@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify
 import json
 from flask_cors import CORS
-from game import *
-from greedy_player import *
+from legacy.game import *
+from legacy.greedy_player import *
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
