@@ -154,6 +154,48 @@ class GameState:
                     moves.extend(new_moves)
         return moves
     
+    def get_binned_legal_moves(self):
+        moves = []
+        for r in range(self.rows):
+            for c in range(self.cols):
+                unit = self.get_unit(r, c)
+                if unit and not unit.is_exhausted() and unit.army == self.current_army:
+                    self.searched = np.full((self.rows, self.cols), -1)
+                    new_moves = self.move_search(r, c, r, c, unit.get_movement_amount())
+                    moves.append(new_moves)
+        return moves
+    
+    def get_binned_plausible_moves(self):
+        moves = []
+        for r in range(self.rows):
+            for c in range(self.cols):
+                unit = self.get_unit(r, c)
+                if unit and not unit.is_exhausted() and unit.army == self.current_army:
+                    self.searched = np.full((self.rows, self.cols), -1)
+                    new_moves = self.plausible_move_search(r, c, r, c, unit.get_movement_amount())
+                    moves.append(new_moves)
+        return moves
+    
+    def plausible_move_search(self, oriR, oriC, row, col, dist):
+        moves = []
+        unit = self.get_unit(oriR,oriC)
+
+        if self.searched[row][col] < dist:
+            if self.searched[row][col] == -1 and self.can_traverse(unit,row,col): # if unit can end on row, col
+                moves.append((oriR, oriC, row, col, None, None))
+                for dr, dc in unit.get_attack_squares(): #search attacks
+                    newR = row + dr
+                    newC = col + dc
+                    if self.can_attack((oriR,oriC),(row, col,),(newR, newC)):
+                        moves.append((oriR, oriC, row, col, newR, newC))
+            self.searched[row][col] = dist
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]: # search new moves
+                newR = row + dr
+                newC = col + dc
+                if  (0 <= newR < self.rows and 0 <= newC < self.cols) and self.can_traverse(unit, newR, newC) and dist > 0:
+                    moves.extend(self.move_search(oriR, oriC, newR, newC, dist-1))
+        return moves
+    
     def get_legal_moves(self, row, col):
         self.searched = np.full((self.rows, self.cols), -1)
         return self.move_search(row, col, row, col, self.unit_matrix[row][col].get_movement_amount())

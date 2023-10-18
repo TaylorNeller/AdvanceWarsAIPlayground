@@ -15,6 +15,11 @@ class AWGame:
     map1.add_unit(Unit(Unit.INFANTRY, Unit.BLUE_MOON), 0, 5)  # Add a Blue Moon infantry at (5, 5)
     map1.add_unit(Unit(Unit.TANK, Unit.BLUE_MOON), 0, 6)  # Add a Blue Moon infantry at (5, 5)
 
+    map2 = GameState(5,8)
+    map2.add_unit(Unit(Unit.INFANTRY, Unit.BLUE_MOON), 0, 3)  # Add an Orange Star infantry at (2, 2)
+    map2.add_unit(Unit(Unit.TANK, Unit.BLUE_MOON), 0, 0)  # Add an Orange Star infantry at (2, 2)
+    map2.add_unit(Unit(Unit.INFANTRY, Unit.ORANGE_STAR), 0, 7)  # Add an Orange Star infantry at (2, 2)
+
 
 
     def __init__(self, player1, player2, state=map1, gui=None):
@@ -36,12 +41,15 @@ class AWGame:
                     self.gui.display()
 
                 # print(self.players[curr_army])
+                print(curr_army)
                 move = self.players[curr_army].get_next_move(self.state.clone())
                 if move == GameState.RESIGN:
                     game_over = True
                     break
                 print(move)
                 self.state.move(move)
-
+                
                 if not isinstance(self.players[curr_army], HumanAgent):
                     time.sleep(.5)
+                    # game_over = True
+                    # break
